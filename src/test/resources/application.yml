@@ -1,4 +1,7 @@
 spring:
+  autoconfigure:
+    exclude:
+      - "org.springframework.cloud.stream.test.binder.TestSupportBinderAutoConfiguration"
   cloud:
     stream:
       default-binder: kafka

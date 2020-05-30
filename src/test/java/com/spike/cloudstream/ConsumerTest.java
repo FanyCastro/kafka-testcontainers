@@ -1,7 +1,6 @@
 package com.spike.cloudstream;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.util.TestPropertyValues;
@@ -9,9 +8,7 @@ import org.springframework.context.ApplicationContextInitializer;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.support.MessageBuilder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -27,10 +24,8 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
-@ExtendWith(SpringExtension.class)
 @Testcontainers
 @ContextConfiguration(initializers = {ConsumerTest.Initializer.class})
-@ActiveProfiles("test")
 public class ConsumerTest {
 
     @Container
@@ -66,7 +61,7 @@ public class ConsumerTest {
         final int totalMessages = messagesToSend.size();
 
         consumer.resetMessages();
-        messagesToSend.forEach(m ->producer.getMysource().output().send(m));
+        messagesToSend.forEach(m -> producer.getMysource().output().send(m));
 
         await().atMost(TIMEOUT_WAITING_FOR_MESSAGES, SECONDS).until(() -> consumer.getMessages().size() == totalMessages);
 
