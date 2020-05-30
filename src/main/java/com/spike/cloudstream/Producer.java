@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderOptions;
 import reactor.kafka.sender.SenderRecord;
@@ -20,16 +21,16 @@ public class Producer {
 
     private static final Logger log = LoggerFactory.getLogger(Producer.class.getName());
 
-    private static final String BOOTSTRAP_SERVERS = "localhost:9092";
-    private static final String TOPIC = "test";
-
     private final KafkaSender<String, String> sender;
+    private final ConfigProperties configProperties;
 
-    Producer() {
+    public Producer(final ConfigProperties configProperties) {
+        this.configProperties = configProperties;
+
         final Map<String, Object> props = new HashMap<>();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
-        props.put(ProducerConfig.CLIENT_ID_CONFIG, "sample-producer");
-        props.put(ProducerConfig.ACKS_CONFIG, "all");
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, configProperties.getServerUri());
+        props.put(ProducerConfig.CLIENT_ID_CONFIG, configProperties.getProducerClientId());
+        props.put(ProducerConfig.ACKS_CONFIG, configProperties.getAcks());
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
 
@@ -37,15 +38,16 @@ public class Producer {
         sender = KafkaSender.create(senderOptions);
     }
 
-    public Flux<?> send(final String input) {
+    public Mono<?> send(final Mono<String> messageMono) {
+        return messageMono.flatMap(message -> {
+            final String key = UUID.randomUUID().toString();
+            final SenderRecord<String, String, String> record = SenderRecord.create(
+                    new ProducerRecord<>(configProperties.getTopic(), key, message), key
+            );
 
-        final String key = UUID.randomUUID().toString();
-        final SenderRecord<String, String, String> record = SenderRecord.create(
-                new ProducerRecord<>(TOPIC, key, input), key
-        );
-
-        return sender.<String>send(Flux.just(record))
-                .doOnError(e -> log.error("Send failed", e));
+            log.info("Sending message with key {}", key);
+            return sender.send(Flux.just(record)).single();
+        });
     }
 
 }
