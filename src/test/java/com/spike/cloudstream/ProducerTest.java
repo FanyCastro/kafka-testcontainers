@@ -8,14 +8,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import org.testcontainers.shaded.com.fasterxml.jackson.core.JsonProcessingException;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.kafka.receiver.KafkaReceiver;
@@ -34,13 +31,6 @@ public class ProducerTest {
     private Producer producer;
     @Autowired
     private ConfigProperties configProperties;
-
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    @Bean
-    private ObjectMapper objectMapper() {
-        return objectMapper;
-    }
 
     private static final String KAFKA_SERVER_URI_PROPERTY = "kafka.properties.server-uri";
 
@@ -65,8 +55,6 @@ public class ProducerTest {
                 .expectComplete()
                 .verify());
 
-        final KafkaReceiver<String, String> receiver = getKafkaReceiver();
-
         // the consumer keeps listening to the queue, so that we have to cancel the subscription
         getPets().as(StepVerifier::create)
                 .expectSubscription()
@@ -86,28 +74,22 @@ public class ProducerTest {
 
     private Flux<Pet> getPets() {
         return getKafkaReceiver().receive()
-                .map(ConsumerRecord::value)
-                .flatMap(message -> {
-                    try {
-                        return Mono.just(objectMapper.readValue(message, Pet.class));
-                    } catch (final JsonProcessingException e) {
-                        return Mono.error(e);
-                    }
-                });
+                .map(ConsumerRecord::value);
     }
 
     @NotNull
-    private KafkaReceiver<String, String> getKafkaReceiver() {
+    private KafkaReceiver<String, Pet> getKafkaReceiver() {
         final Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, configProperties.getServerUri());
         props.put(ConsumerConfig.CLIENT_ID_CONFIG, CLIENT_ID);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, GROUP_ID);
         props.put(ConsumerConfig.GROUP_INSTANCE_ID_CONFIG, INSTANCE_ID);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, GsonDeserializer.class);
+        props.put(GsonDeserializer.CONFIG_VALUE_CLASS, Pet.class.getName());
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, OFFSET_EARLIEST);
-        final ReceiverOptions<String, String> receiverOptions = ReceiverOptions.create(props);
-        final ReceiverOptions<String, String> options = receiverOptions
+        final ReceiverOptions<String, Pet> receiverOptions = ReceiverOptions.create(props);
+        final ReceiverOptions<String, Pet> options = receiverOptions
                 .subscription(Collections.singleton(configProperties.getTopic()));
         return KafkaReceiver.create(options);
     }
