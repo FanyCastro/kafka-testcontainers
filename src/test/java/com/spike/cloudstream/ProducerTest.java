@@ -42,36 +42,29 @@ public class ProducerTest {
     }
 
     @Test
-    void simpleTestKafkaContainer() {
-        assertTrue(KAFKA_CONTAINER.isRunning());
-    }
-
-    @Test
     @DisplayName("The producer should send a message to the queue")
     void produceSendShouldSendTheMessage() {
 
         final List<String> messageToSend = Arrays.asList("uno", "dos", "tres");
-        messageToSend.forEach(m -> {
-            StepVerifier.create(producer.send(Mono.just(m)))
-                    .expectSubscription()
-                    .thenRequest(Long.MAX_VALUE)
-                    .expectNextCount(1L)
-                    .expectComplete()
-                    .verify();
-        });
+        messageToSend.forEach(m -> producer.send(Mono.just(m)).as(StepVerifier::create)
+                .expectSubscription()
+                .thenRequest(Long.MAX_VALUE)
+                .expectNextCount(1L)
+                .expectComplete()
+                .verify());
 
         final KafkaReceiver<String, String> receiver = getKafkaReceiver();
 
         // the consumer keeps listening to the queue, so that we have to cancel the subscription
-        StepVerifier.create(receiver.receive().map(ConsumerRecord::value))
-            .expectSubscription()
-            .recordWith(ArrayList::new)  // create an array list with all the elements
-            .thenRequest(Long.MAX_VALUE)
-            .expectNextCount(messageToSend.size())
-            .expectRecordedMatches(messageToSend::containsAll)
-            .expectNextCount(0L)
-            .thenCancel()
-            .verify();
+        receiver.receive().map(ConsumerRecord::value).as(StepVerifier::create)
+                .expectSubscription()
+                .recordWith(ArrayList::new)  // create an array list with all the elements
+                .thenRequest(Long.MAX_VALUE)
+                .expectNextCount(messageToSend.size())
+                .expectRecordedMatches(messageToSend::containsAll)
+                .expectNextCount(0L)
+                .thenCancel()
+                .verify();
     }
 
     @NotNull
