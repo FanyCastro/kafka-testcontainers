@@ -6,11 +6,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "kafka.properties")
 public class ConfigProperties {
-
     private String serverUri;
     private String topic;
-    private String groupId;
-    private String consumerClientId;
     private String producerClientId;
     private String acks;
 
@@ -30,28 +27,12 @@ public class ConfigProperties {
         this.topic = topic;
     }
 
-    public String getGroupId() {
-        return groupId;
-    }
-
-    public void setGroupId(String groupId) {
-        this.groupId = groupId;
-    }
-
     public String getAcks() {
         return acks;
     }
 
     public void setAcks(String acks) {
         this.acks = acks;
-    }
-
-    public String getConsumerClientId() {
-        return consumerClientId;
-    }
-
-    public void setConsumerClientId(String consumerClientId) {
-        this.consumerClientId = consumerClientId;
     }
 
     public String getProducerClientId() {
