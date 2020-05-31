@@ -2,7 +2,5 @@ kafka:
   properties:
     server-uri: localhost:9092
     topic: test
-    group-id: sample-group
     producer-client-id: sample-producer
-    consumer-client-id: sample-consumer
     acks: all

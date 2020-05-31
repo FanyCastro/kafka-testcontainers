@@ -1,5 +1,7 @@
 package com.spike.cloudstream;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -14,18 +16,17 @@ import reactor.kafka.sender.SenderRecord;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class Producer {
-
     private static final Logger log = LoggerFactory.getLogger(Producer.class.getName());
-
     private final KafkaSender<String, String> sender;
     private final ConfigProperties configProperties;
+    private final ObjectMapper objectMapper;
 
-    public Producer(final ConfigProperties configProperties) {
+    public Producer(final ConfigProperties configProperties, final ObjectMapper objectMapper) {
         this.configProperties = configProperties;
+        this.objectMapper = objectMapper;
 
         final Map<String, Object> props = new HashMap<>();
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, configProperties.getServerUri());
@@ -38,16 +39,19 @@ public class Producer {
         sender = KafkaSender.create(senderOptions);
     }
 
-    public Mono<?> send(final Mono<String> messageMono) {
-        return messageMono.flatMap(message -> {
-            final String key = UUID.randomUUID().toString();
-            final SenderRecord<String, String, String> record = SenderRecord.create(
-                    new ProducerRecord<>(configProperties.getTopic(), key, message), key
-            );
+    public Mono<String> send(final Mono<Pet> petMono) {
+        return petMono.flatMap(pet -> {
+            try {
+                final String value = objectMapper.writeValueAsString(pet);
+                final SenderRecord<String, String, String> record = SenderRecord.create(
+                        new ProducerRecord<>(configProperties.getTopic(), pet.getId(), value), pet.getId()
+                );
 
-            log.info("Sending message with key {}", key);
-            return sender.send(Flux.just(record)).single();
+                log.info("Sending pet {}", pet);
+                return sender.send(Flux.just(record)).single().map(ignore -> pet.getId());
+            } catch (final JsonProcessingException e) {
+                return Mono.error(e);
+            }
         });
     }
-
 }
